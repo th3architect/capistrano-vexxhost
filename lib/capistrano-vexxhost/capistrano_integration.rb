@@ -1,5 +1,6 @@
 require 'base64'
 require 'net/http'
+require 'net/https'
 require 'json'
 
 Capistrano::Configuration.instance(:must_exist).load do
@@ -27,7 +28,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       response_hash = cpanel_api2_command(server_hostname, auth_string, "RoR", "addapp", {'appname' => application, 'path' => "apps/#{application}"})
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       end
     end
 
@@ -38,7 +39,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       response_hash = cpanel_api2_command(server_hostname, auth_string, "RoR", "startapp", {'appname' => application})
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       else
         puts response_hash["cpanelresult"]["data"][0]["statusmsg"]
       end
@@ -52,11 +53,11 @@ Capistrano::Configuration.instance(:must_exist).load do
 
       # Empty response = not running
       if response_hash.nil?
-        raise "The rails application is not running."
+        abort "  - ERROR: The rails application is not running."
       end
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       else
         puts response_hash["cpanelresult"]["data"][0]["statusmsg"]
       end
@@ -69,7 +70,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       response_hash = cpanel_api2_command(server_hostname, auth_string, "RoR", "restartapp", {'appname' => application})
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       else
         puts response_hash["cpanelresult"]["data"][0]["statusmsg"]
       end
@@ -82,7 +83,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       response_hash = cpanel_api2_command(server_hostname, auth_string, "RoR", "setuprewrite", {'appname' => application, 'rewritedomain' => domain, 'rewriteurl' => mount_path})
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       else
         puts response_hash["cpanelresult"]["data"][0]["statusmsg"]
       end
@@ -95,7 +96,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       response_hash = cpanel_api2_command(server_hostname, auth_string, "RoR", "removerewrite", {'appname' => application, 'rewritedomain' => domain, 'rewriteurl' => mount_path})
 
       if response_hash["cpanelresult"]["data"][0]["status"] != 1
-        raise response_hash["cpanelresult"]["data"][0]["statusmsg"]
+        abort "  - ERROR: #{response_hash["cpanelresult"]["data"][0]["statusmsg"]}"
       else
         puts response_hash["cpanelresult"]["data"][0]["statusmsg"]
       end
@@ -119,14 +120,13 @@ Capistrano::Configuration.instance(:must_exist).load do
         return (response.body.empty?) ? nil : JSON.parse(response.body.match(/\{(.*)\}/)[0])
       end
     else
-      Net::HTTP.start(hostname, 2083) do |http|
-        http.use_ssl = true
-        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
-        request = Net::HTTP::Get.new(request_location, {'Authorization' => "Basic #{authorization}"})
-        response = http.request(request)
+      http = Net::HTTP.new(hostname, 2083)
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
 
-        return (response.body.empty?) ? nil : JSON.parse(response.body.match(/\{(.*)\}/)[0])
-      end
+      request = Net::HTTP::Get.new(request_location, {'Authorization' => "Basic #{authorization}"})
+      response = http.request(request)
+      return (response.body.empty?) ? nil : JSON.parse(response.body.match(/\{(.*)\}/)[0])
     end
   end
 
